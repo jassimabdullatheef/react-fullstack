@@ -1,5 +1,7 @@
 # react-fullstack
 
+A tutorial repo followed by Stephen Grider's Udemy course
+
 add config/dev.js with following code
 ```
 module.exports = {
