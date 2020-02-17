@@ -9,6 +9,9 @@ import { connect } from 'react-redux'
 
 import { fetchUser } from '../actions'
 
+import axios from 'axios'
+window.axios = axios
+
 class App extends Component {
   componentDidMount() {
     this.props.fetchUser()

@@ -1,4 +1,7 @@
 const mongoose = require('mongoose')
+const _ = require('lodash')
+const { Path } = require('path-parser')
+const { URL } = require('url')
 
 const requireLogin = require('../middlewares/requireLogin')
 const requireCredits = require('../middlewares/requireCredits')
@@ -11,8 +14,6 @@ const Survey = mongoose.model('survey')
 module.exports = app => {
   app.post('/api/surveys', requireLogin, requireCredits, async (req, res) => {
     const { title, subject, body, recepients } = req.body
-
-    console.log(req.body)
 
     const survey = new Survey({
       title,
@@ -37,12 +38,44 @@ module.exports = app => {
     }
   })
 
-  app.get('/api/surveys/thanks', (req, res) => {
+  app.get('/api/surveys', requireLogin, async (req, res) => {
+    const surveys = await Survey.find({ _user: req.user.id }).select({
+      recepients: false
+    })
+    res.send(surveys)
+  })
+
+  app.get('/api/surveys/:surveyId/:choice', (req, res) => {
     res.send('Thanks for voting!')
   })
 
   app.post('/api/surveys/webhook', (req, res) => {
-    console.log(req.body)
+    const p = new Path('/api/surveys/:surveyId/:choice')
+
+    _.chain(req.body)
+      .map(({ email, url }) => {
+        const match = p.test(new URL(url).pathname)
+        if (match) return { email, ...match }
+      })
+      .compact()
+      .uniqBy('email', 'surveyId')
+      .each(({ surveyId, email, choice }) => {
+        Survey.updateOne(
+          {
+            _id: surveyId,
+            recepients: {
+              $elemMatch: { email: email, responded: false }
+            }
+          },
+          {
+            $inc: { [choice]: 1 },
+            $set: { 'recepients.$.responded': false },
+            lastResponded: new Date()
+          }
+        ).exec()
+      })
+      .value()
+
     res.send({})
   })
 }
